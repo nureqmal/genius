@@ -10,7 +10,6 @@ except ImportError:
 
 
 def _get_secret(key: str) -> str:
-    """Read from st.secrets (Streamlit Cloud) or os.environ (local)."""
     try:
         return st.secrets[key]
     except Exception:
@@ -64,7 +63,6 @@ def is_authenticated():
 
 
 def require_auth():
-    """Call at top of any page that needs login."""
     if not is_authenticated():
         st.warning("Please log in to continue.")
         st.stop()
