@@ -326,15 +326,6 @@ def search_crossref(query: str, source_type: str, limit: int = 6) -> list:
 # ─────────────────────────────────────────────
 
 def search_all_sources(topic: str, objective: str) -> list:
-    """
-    Full pipeline:
-    1. Gemini generates smart queries
-    2. Search all 4 sources with each query
-    3. Deduplicate
-    4. Filter low quality (0 citations AND very old)
-    5. Gemini scores relevancy properly
-    6. Sort by relevancy + citation count
-    """
 
     # Step 1: Generate smart queries
     queries = generate_search_queries(topic, objective)
@@ -351,17 +342,15 @@ def search_all_sources(topic: str, objective: str) -> list:
         batch += search_crossref(query, source_type, limit=4)
         batch += search_arxiv(query, source_type, limit=3)
 
-        # Deduplicate within batch
         for r in batch:
             key = r["title"].lower().strip()[:70]
             if key and key not in seen_titles and len(r["title"]) > 10:
                 seen_titles.add(key)
                 all_results.append(r)
 
-        time.sleep(0.5)  # be nice to APIs
+        time.sleep(0.5)
 
-    # Step 3: Filter obviously low quality
-    # Keep if: has citations OR is recent (<=3 years) OR from Semantic Scholar
+    # Step 3: Filter low quality — tapi jangan terlalu strict
     filtered = []
     for r in all_results:
         age = CURRENT_YEAR - (r.get("year") or CURRENT_YEAR)
@@ -371,21 +360,26 @@ def search_all_sources(topic: str, objective: str) -> list:
         if has_citations or is_very_recent or is_semantic:
             filtered.append(r)
 
+    # Kalau filter terlalu strict, guna semua
+    if len(filtered) < 5:
+        filtered = all_results
+
+    # Kalau still empty, return empty dengan message
     if not filtered:
-        filtered = all_results  # fallback, keep everything
+        return []
 
     # Step 4: Gemini scores relevancy
     scored = gemini_score_papers(filtered, topic, objective)
 
-    # Step 5: Filter out low relevancy (below 30%)
-    relevant = [p for p in scored if p.get("relevancy_pct", 0) >= 30]
-    if not relevant:
-        relevant = scored  # fallback
-
-    # Step 6: Sort — relevancy first, then citation count
-    relevant.sort(
+    # Step 5: Sort dulu by relevancy + citation
+    scored.sort(
         key=lambda x: (x.get("relevancy_pct", 0), x.get("citation_count", 0)),
         reverse=True
     )
 
-    return relevant[:30]  # return top 30
+    # Step 6: Filter below 30% TAPI pastikan ada at least 10 results
+    relevant = [p for p in scored if p.get("relevancy_pct", 0) >= 30]
+    if len(relevant) < 10:
+        relevant = scored  # buang filter, bagi semua
+
+    return relevant[:30]
