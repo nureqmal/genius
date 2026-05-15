@@ -28,16 +28,13 @@ def show():
         if st.button("Proceed to Analysis →", type="primary"):
             update_project_status(project["id"], "analysing")
             st.session_state["current_project"]["status"] = "analysing"
+            st.session_state["current_page"] = "🧠 Analyse"
             st.rerun()
         st.markdown("---")
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        custom_query = st.info(f"🔍 Searching based on your research topic, objective, and gap...")
-search_clicked = st.button("🔍 Search Papers", use_container_width=True, type="primary")
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        search_clicked = st.button("🔍 Search", use_container_width=True, type="primary")
+    st.info("🤖 AI will generate targeted search queries based on your topic, objective, and research gap.")
+
+    search_clicked = st.button("🔍 Search Papers", use_container_width=True, type="primary")
 
     with st.expander("ℹ️ Source Date Intelligence"):
         st.markdown(f"""
@@ -49,21 +46,21 @@ search_clicked = st.button("🔍 Search Papers", use_container_width=True, type=
         """)
 
     if search_clicked:
-        with st.spinner("Searching Semantic Scholar, arXiv, PubMed, CrossRef..."):
+        with st.spinner("🤖 Gemini is generating targeted queries and searching 4 databases..."):
             results = search_all_sources(
-    project["topic"],
-    project["objective"],
-    project.get("research_gap", "")
-)
+                project["topic"],
+                project["objective"],
+                project.get("research_gap", "")
+            )
         st.session_state["search_results"] = results
 
     results = st.session_state.get("search_results", [])
     if not results:
         if search_clicked:
-            st.warning("No results found. Try a different query.")
+            st.warning("No results found. Try refining your topic or objective.")
         return
 
-    st.markdown(f"**{len(results)} papers found** — select relevant ones:")
+    st.markdown(f"**{len(results)} relevant papers found** — select the ones you want:")
     st.markdown("<br>", unsafe_allow_html=True)
 
     pool_titles = {p["paper_title"].lower().strip()[:60] for p in pool}
@@ -77,7 +74,7 @@ search_clicked = st.button("🔍 Search Papers", use_container_width=True, type=
                 exception_flag = " 🏛️ *Classic exception*" if paper.get("is_exception") else ""
                 st.markdown(f"**{paper['title']}**{exception_flag}")
                 badge_cls = SOURCE_COLORS.get(paper["source"], "badge-gray")
-                relevancy_pct = int(paper["relevancy_score"] * 100)
+                relevancy_pct = paper.get("relevancy_pct", 0)
                 st.markdown(
                     f'<span class="badge {badge_cls}">{paper["source"]}</span> '
                     f'<span class="badge badge-gray">📅 {paper.get("year") or "n.d."}</span> '
@@ -85,6 +82,8 @@ search_clicked = st.button("🔍 Search Papers", use_container_width=True, type=
                     f'<span class="badge badge-green">🎯 {relevancy_pct}% relevant</span>',
                     unsafe_allow_html=True
                 )
+                if paper.get("venue"):
+                    st.caption(f"📰 {paper['venue']}")
                 if paper.get("abstract"):
                     with st.expander("Abstract"):
                         st.write(paper["abstract"][:600])
