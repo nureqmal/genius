@@ -263,30 +263,39 @@ def search_arxiv(query: str, source_type: str, limit: int = 4) -> list:
     except Exception:
         return []
 
-    import xml.etree.ElementTree as ET
-    ns = {"atom": "http://www.w3.org/2005/Atom"}
-    root = ET.fromstring(res.text)
+    try:
+        import xml.etree.ElementTree as ET
+        ns = {"atom": "http://www.w3.org/2005/Atom"}
+        root = ET.fromstring(res.text)
+        entries = root.findall("atom:entry", ns)
+    except Exception:
+        return []
+
     results = []
-    for e in root.findall("atom:entry", ns):
-        title = (e.findtext("atom:title", "", ns) or "").strip().replace("\n", " ")
-        abstract = (e.findtext("atom:summary", "", ns) or "").strip().replace("\n", " ")
-        published = e.findtext("atom:published", "", ns) or ""
-        year = int(published[:4]) if published else 0
-        arxiv_id = (e.findtext("atom:id", "", ns) or "").split("/abs/")[-1]
-        passes, is_exc = is_recent_enough(year, source_type, 0)
-        if not passes:
+    for e in entries:
+        try:
+            title = (e.findtext("atom:title", "", ns) or "").strip().replace("\n", " ")
+            abstract = (e.findtext("atom:summary", "", ns) or "").strip().replace("\n", " ")
+            published = e.findtext("atom:published", "", ns) or ""
+            year = int(published[:4]) if published else 0
+            arxiv_id = (e.findtext("atom:id", "", ns) or "").split("/abs/")[-1]
+            passes, is_exc = is_recent_enough(year, source_type, 0)
+            if not passes:
+                continue
+            results.append({
+                "title": title,
+                "authors": ", ".join(
+                    a.text for a in e.findall("atom:author/atom:name", ns)[:3] if a.text
+                ),
+                "year": year, "abstract": abstract, "doi": arxiv_id, "venue": "arXiv",
+                "source": "arXiv", "citation_count": 0,
+                "relevancy_score": 0.5, "relevancy_pct": 50,
+                "source_type": source_type, "is_exception": is_exc,
+                "pdf_url": f"https://arxiv.org/abs/{arxiv_id}",
+            })
+        except Exception:
             continue
-        results.append({
-            "title": title,
-            "authors": ", ".join(
-                a.text for a in e.findall("atom:author/atom:name", ns)[:3] if a.text
-            ),
-            "year": year, "abstract": abstract, "doi": arxiv_id, "venue": "arXiv",
-            "source": "arXiv", "citation_count": 0,
-            "relevancy_score": 0.5, "relevancy_pct": 50,
-            "source_type": source_type, "is_exception": is_exc,
-            "pdf_url": f"https://arxiv.org/abs/{arxiv_id}",
-        })
+
     return results
 
 
