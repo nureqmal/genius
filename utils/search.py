@@ -29,50 +29,149 @@ RECENT_YEARS = 5
 HIGH_CITATION_THRESHOLD = 500
 
 
+# ─────────────────────────────────────────────
+# DOMAIN QUERY TEMPLATES
+# Used as few-shot examples to guide Gemini
+# ─────────────────────────────────────────────
+
+DOMAIN_TEMPLATES = {
+    "food_science_halal": {
+        "keywords": ["halal", "food authentication", "food fraud", "lard", "adulteration",
+                     "GC-MS", "GCMS", "lipid", "fatty acid", "edible oil"],
+        "example_queries": [
+            "GC-MS halal authentication lard detection",
+            "lipid profiling lard adulteration detection",
+            "machine learning edible oil classification",
+            "FAME chemometrics food authentication",
+            "PCA PLS-DA oil adulteration",
+            "fatty acid ratio lard pork detection",
+            "OPLS-DA lipid profiling discrimination",
+            "SVM random forest food fraud detection",
+            "lard adulteration vegetable oil GC-MS",
+            "halal food verification chromatography",
+        ]
+    },
+    "biomedical": {
+        "keywords": ["disease", "clinical", "patient", "drug", "treatment", "diagnosis",
+                     "biomarker", "cancer", "therapy", "genomics", "proteomics"],
+        "example_queries": [
+            "machine learning disease diagnosis prediction",
+            "biomarker identification clinical study",
+            "deep learning medical image classification",
+            "drug response prediction genomics",
+            "protein expression cancer biomarker",
+        ]
+    },
+    "computer_science_ml": {
+        "keywords": ["neural network", "deep learning", "NLP", "computer vision",
+                     "transformer", "BERT", "classification", "reinforcement learning"],
+        "example_queries": [
+            "transformer model NLP text classification",
+            "convolutional neural network image recognition",
+            "reinforcement learning optimization policy",
+            "BERT fine-tuning sentiment analysis",
+            "graph neural network node classification",
+        ]
+    },
+    "environmental": {
+        "keywords": ["climate", "pollution", "environmental", "ecosystem", "carbon",
+                     "remote sensing", "biodiversity", "water quality", "soil"],
+        "example_queries": [
+            "remote sensing land use classification",
+            "water quality prediction machine learning",
+            "carbon emission climate model prediction",
+            "biodiversity assessment environmental monitoring",
+            "soil contamination detection spectroscopy",
+        ]
+    },
+    "social_science": {
+        "keywords": ["survey", "qualitative", "quantitative", "behaviour", "perception",
+                     "attitude", "education", "policy", "society", "culture"],
+        "example_queries": [
+            "student learning outcome assessment",
+            "policy implementation educational system",
+            "consumer behaviour purchase intention",
+            "social media influence perception study",
+            "qualitative interview thematic analysis",
+        ]
+    },
+    "engineering": {
+        "keywords": ["structural", "material", "sensor", "IoT", "optimization",
+                     "finite element", "simulation", "fabrication", "composite"],
+        "example_queries": [
+            "structural optimization finite element analysis",
+            "IoT sensor data anomaly detection",
+            "composite material mechanical properties",
+            "simulation modelling engineering system",
+            "machine learning predictive maintenance",
+        ]
+    },
+}
+
+
+def detect_domain(topic: str, objective: str, field: str = "") -> str:
+    """Detect which domain template to use based on research context."""
+    combined = (topic + " " + objective + " " + field).lower()
+    scores = {}
+    for domain, config in DOMAIN_TEMPLATES.items():
+        hits = sum(1 for kw in config["keywords"] if kw.lower() in combined)
+        scores[domain] = hits
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else "general"
+
+
 def generate_search_queries(topic: str, objective: str, gap: str = "") -> list:
+    """Gemini generates targeted queries using domain templates as examples."""
+
+    domain = detect_domain(topic, objective)
+    example_queries = DOMAIN_TEMPLATES.get(domain, {}).get("example_queries", [])
+    examples_str = json.dumps(example_queries[:6])
+
     prompt = f"""You are an expert academic research librarian.
 
-A researcher needs academic papers for this project:
+A researcher needs highly specific academic paper search queries.
 
-TOPIC: {topic}
-OBJECTIVE: {objective}
-RESEARCH GAP: {gap or "Not specified"}
+RESEARCH CONTEXT:
+Topic: {topic}
+Objective: {objective}
+Gap: {gap or "Not specified"}
 
-Generate 6 highly specific search queries for Semantic Scholar and PubMed.
+DOMAIN DETECTED: {domain}
+
+Here are example queries from this domain for reference style:
+{examples_str}
+
+YOUR TASK: Generate 8 NEW specific search queries for THIS researcher's exact topic.
 
 STRICT RULES:
-- Each query: 3-6 words ONLY
-- Use EXACT scientific/technical terms from the topic
-- Be VERY specific — include specific methods, substances, instruments
-- Cover 6 different angles of the research
-- NO generic terms like "machine learning review" or "deep learning applications"
-- Queries must match what appears in academic paper TITLES
+- 3-6 words per query
+- Use EXACT scientific/technical terms from the topic and objective
+- Be VERY specific — match terms that appear in academic paper titles
+- Cover 8 different angles: core method, specific technique, application domain, comparison study, materials/subjects, analytical method, ML/statistical method, recent advances
+- Do NOT copy the example queries — generate NEW ones specific to this research
+- Do NOT use generic terms like "review", "overview", "introduction"
 
-Example for "Lipid Profiling GCMS Halal Authentication":
-["GC-MS halal authentication fatty acid", "lipid profiling lard adulteration detection", "machine learning edible oil classification", "FAME chemometrics food authentication", "halal food verification chromatography", "SVM PCA oil adulteration"]
-
-Return ONLY a JSON array of 6 strings. No explanation. No markdown."""
+Return ONLY a JSON array of 8 strings. No explanation. No markdown."""
 
     try:
         response = model.generate_content(prompt)
         raw = re.sub(r"```json|```", "", response.text.strip()).strip()
         queries = json.loads(raw)
-        if isinstance(queries, list) and len(queries) >= 3:
-            return [q.strip() for q in queries if isinstance(q, str)][:6]
+        if isinstance(queries, list) and len(queries) >= 4:
+            return [q.strip() for q in queries if isinstance(q, str)][:8]
     except Exception:
         pass
 
-    # Fallback — extract core keywords
+    # Fallback — use domain template queries directly
+    if example_queries:
+        return example_queries[:6]
+
+    # Last resort fallback
     words = [w for w in (topic + " " + objective).split()
              if len(w) > 4 and w.lower() not in
              {"using", "based", "approach", "study", "research",
-              "analysis", "towards", "within", "their", "which", "methods"}]
-    queries = []
-    for i in range(0, min(len(words), 20), 3):
-        chunk = " ".join(words[i:i+4])
-        if chunk:
-            queries.append(chunk)
-    return queries[:6]
+              "analysis", "towards", "within", "their", "which"}]
+    return [" ".join(words[i:i+4]) for i in range(0, min(len(words), 24), 3)][:6]
 
 
 def classify_source_type(topic: str, objective: str) -> str:
@@ -80,7 +179,8 @@ def classify_source_type(topic: str, objective: str) -> str:
         "method", "technique", "algorithm", "model", "result", "finding",
         "analysis", "experiment", "performance", "accuracy", "detection",
         "classification", "gcms", "gc-ms", "ml", "machine learning",
-        "deep learning", "neural", "profiling", "chromatography", "spectroscopy"
+        "deep learning", "neural", "profiling", "chromatography", "spectroscopy",
+        "extraction", "derivatisation", "multivariate", "PCA", "PLS"
     ]
     combined = (topic + " " + objective).lower()
     hits = sum(1 for kw in method_keywords if kw in combined)
@@ -113,21 +213,23 @@ Research Topic: {topic}
 Research Objective: {objective}
 Research Gap: {gap or "Not specified"}
 
-Score each paper 0-100 for relevance:
-- 85-100: Directly relevant — same method, domain, materials
-- 60-84: Relevant — same domain OR same method, different application  
-- 30-59: Partially relevant — related field, useful as background
+Score each paper 0-100 for relevance to this SPECIFIC research:
+- 85-100: Directly relevant — same method, same domain, same materials/substances
+- 60-84: Relevant — same domain OR same method, different application
+- 30-59: Partially relevant — related field, useful as background only
 - 0-29: NOT relevant — different domain, coincidental keyword match
 
-BE STRICT:
-- A finance paper is 0 for a food science study
-- A tourism paper is 0 for a chemistry study
-- Only score high if genuinely useful for THIS specific research
+STRICT EXAMPLES:
+- Finance paper for food science study = 0
+- Tourism paper for chemistry study = 0
+- Halal tourism for halal food authentication = 15 MAX (different domain)
+- GC-MS food paper for GC-MS halal study = 80+
+- ML classification paper for ML food fraud = 70+
 
-Papers:
+Papers to score:
 {paper_list}
 
-Return ONLY a JSON array of {min(len(papers), 25)} integer scores. Example: [92, 45, 0, 78]
+Return ONLY a JSON array of {min(len(papers), 25)} integer scores.
 No explanation. No markdown."""
 
     try:
@@ -149,10 +251,6 @@ No explanation. No markdown."""
 
     return papers
 
-
-# ─────────────────────────────────────────────
-# Semantic Scholar — PRIMARY source
-# ─────────────────────────────────────────────
 
 def search_semantic_scholar(query: str, source_type: str, limit: int = 10) -> list:
     try:
@@ -195,10 +293,6 @@ def search_semantic_scholar(query: str, source_type: str, limit: int = 10) -> li
         })
     return results
 
-
-# ─────────────────────────────────────────────
-# PubMed — SECONDARY source (biomedical/food science)
-# ─────────────────────────────────────────────
 
 def search_pubmed(query: str, source_type: str, limit: int = 8) -> list:
     try:
@@ -257,23 +351,19 @@ def search_pubmed(query: str, source_type: str, limit: int = 8) -> list:
 
 def search_all_sources(topic: str, objective: str, gap: str = "") -> list:
 
-    # Step 1: Gemini generates specific queries
     queries = generate_search_queries(topic, objective, gap)
     source_type = classify_source_type(topic, objective)
 
-    # Step 2: Search Semantic Scholar + PubMed only
     all_results = []
     seen_titles = set()
 
     for query in queries:
-        # Semantic Scholar — primary, more results
         for r in search_semantic_scholar(query, source_type, limit=8):
             key = r["title"].lower().strip()[:70]
             if key and key not in seen_titles and len(r["title"]) > 10:
                 seen_titles.add(key)
                 all_results.append(r)
 
-        # PubMed — secondary
         for r in search_pubmed(query, source_type, limit=5):
             key = r["title"].lower().strip()[:70]
             if key and key not in seen_titles and len(r["title"]) > 10:
@@ -285,16 +375,16 @@ def search_all_sources(topic: str, objective: str, gap: str = "") -> list:
     if not all_results:
         return []
 
-    # Step 3: Gemini scores relevancy — strict
+    # Gemini scores relevancy
     scored = gemini_score_papers(all_results, topic, objective, gap)
 
-    # Step 4: Sort by relevancy + citations
+    # Sort by relevancy + citations
     scored.sort(
         key=lambda x: (x.get("relevancy_pct", 0), x.get("citation_count", 0)),
         reverse=True
     )
 
-    # Step 5: Filter — min 40% relevancy, at least 10 results
+    # Keep >= 40% relevancy, minimum 10 results
     relevant = [p for p in scored if p.get("relevancy_pct", 0) >= 40]
     if len(relevant) < 10:
         relevant = scored[:20]
