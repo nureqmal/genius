@@ -13,7 +13,6 @@ st.markdown("""
     .block-container { padding-top: 2rem; }
     .stButton > button { border-radius: 8px; font-weight: 500; }
     .stButton > button[kind="primary"] { background: #6C63FF; border: none; color: white; }
-    .paper-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; }
     .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
     .badge-green { background: #d4edda; color: #155724; }
     .badge-blue { background: #cce5ff; color: #004085; }
@@ -32,7 +31,6 @@ PAGES = [
     "📤 Export",
 ]
 
-# Init nav state
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "🏠 Dashboard"
 
@@ -62,27 +60,26 @@ with st.sidebar:
     else:
         st.session_state["current_page"] = "🏠 Dashboard"
 
-# Page routing
 if not is_authenticated():
-    from pages.login import show
+    from views.login import show
     show()
 else:
     page = st.session_state["current_page"]
     if page == "🏠 Dashboard":
-        from pages.dashboard import show
+        from views.dashboard import show
         show()
     elif page == "➕ New Project":
-        from pages.new_project import show
+        from views.new_project import show
         show()
     elif page == "🔍 Search Papers":
-        from pages.search import show
+        from views.search import show
         show()
     elif page == "🧠 Analyse":
-        from pages.analyse import show
+        from views.analyse import show
         show()
     elif page == "✍️ Write":
-        from pages.write import show
+        from views.write import show
         show()
     elif page == "📤 Export":
-        from pages.export import show
+        from views.export import show
         show()
