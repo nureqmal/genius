@@ -15,7 +15,7 @@ def show():
     user = get_current_user()
 
     st.markdown("## 🏠 Dashboard")
-    st.markdown(f"Welcome back! Here are your research projects.")
+    st.markdown("Welcome back! Here are your research projects.")
     st.markdown("---")
 
     col1, col2 = st.columns([3, 1])
@@ -35,8 +35,9 @@ def show():
     st.markdown("<br>", unsafe_allow_html=True)
 
     for p in projects:
-        icon, badge_cls, label = STATUS_BADGE.get(p.get("status", "searching"),
-                                                   ("🔍", "badge-gray", "Unknown"))
+        icon, badge_cls, label = STATUS_BADGE.get(
+            p.get("status", "searching"), ("🔍", "badge-gray", "Unknown")
+        )
         with st.container():
             col1, col2, col3 = st.columns([4, 1, 1])
             with col1:
@@ -51,15 +52,19 @@ def show():
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Open", key=f"open_{p['id']}", use_container_width=True):
                     st.session_state["current_project"] = p
+                    st.session_state["current_page"] = "🔍 Search Papers"
                     st.rerun()
             with col3:
                 st.markdown("<br>", unsafe_allow_html=True)
                 status = p.get("status", "searching")
-                # Quick jump to relevant step
-                if status in ["analysing"]:
+                if status == "analysing":
                     if st.button("→ Analyse", key=f"jump_{p['id']}", use_container_width=True):
                         st.session_state["current_project"] = p
+                        st.session_state["current_page"] = "🧠 Analyse"
+                        st.rerun()
                 elif status in ["writing", "done"]:
                     if st.button("→ Write", key=f"jump_{p['id']}", use_container_width=True):
                         st.session_state["current_project"] = p
+                        st.session_state["current_page"] = "✍️ Write"
+                        st.rerun()
             st.markdown("---")
