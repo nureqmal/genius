@@ -33,7 +33,8 @@ def show():
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        custom_query = st.text_input("Search query", value=project["topic"])
+        custom_query = st.info(f"🔍 Searching based on your research topic, objective, and gap...")
+search_clicked = st.button("🔍 Search Papers", use_container_width=True, type="primary")
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
         search_clicked = st.button("🔍 Search", use_container_width=True, type="primary")
@@ -49,7 +50,11 @@ def show():
 
     if search_clicked:
         with st.spinner("Searching Semantic Scholar, arXiv, PubMed, CrossRef..."):
-            results = search_all_sources(custom_query, project["objective"])
+            results = search_all_sources(
+    project["topic"],
+    project["objective"],
+    project.get("research_gap", "")
+)
         st.session_state["search_results"] = results
 
     results = st.session_state.get("search_results", [])
