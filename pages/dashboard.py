@@ -21,7 +21,7 @@ def show():
     col1, col2 = st.columns([3, 1])
     with col2:
         if st.button("➕ New Project", use_container_width=True, type="primary"):
-            st.session_state["nav"] = "➕ New Project"
+            st.session_state["current_page"] = "➕ New Project"
             st.rerun()
 
     with st.spinner("Loading projects..."):
